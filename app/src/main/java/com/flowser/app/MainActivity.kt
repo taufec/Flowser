@@ -31,7 +31,6 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-
         if (!awaitingOverlayPermission) return
         awaitingOverlayPermission = false
 
@@ -53,13 +52,13 @@ class MainActivity : Activity() {
         }
 
         val title = TextView(this).apply {
-            text = "Flowser"
+            text = "Flowser 0.2"
             textSize = 30f
             setTextColor(Color.rgb(20, 24, 32))
         }
 
         val description = TextView(this).apply {
-            text = "Open any website in a movable floating window above other Android apps."
+            text = "Open a website above other apps. Move it, resize it, maximize it, or minimize it into a bubble."
             textSize = 16f
             setTextColor(Color.rgb(75, 82, 96))
             gravity = Gravity.CENTER
@@ -84,13 +83,11 @@ class MainActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                topMargin = dp(16)
-            }
+            ).apply { topMargin = dp(16) }
         }
 
         statusText = TextView(this).apply {
-            text = "Enter a URL, then allow “Display over other apps” when Android asks."
+            text = "Drag the top bar to move. Drag the bottom-right handle to resize. Use _ to minimize."
             textSize = 14f
             setTextColor(Color.rgb(75, 82, 96))
             gravity = Gravity.CENTER
@@ -130,7 +127,6 @@ class MainActivity : Activity() {
             Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
             Uri.parse("package:$packageName")
         )
-
         try {
             startActivity(permissionIntent)
         } catch (_: Exception) {
@@ -142,10 +138,11 @@ class MainActivity : Activity() {
 
     private fun launchFloatingBrowser(url: String) {
         val serviceIntent = Intent(this, FloatingBrowserService::class.java)
+            .setAction(FloatingBrowserService.ACTION_OPEN)
             .putExtra(FloatingBrowserService.EXTRA_URL, url)
-        startService(serviceIntent)
+        startForegroundService(serviceIntent)
         pendingUrl = null
-        statusText.text = "Flowser is open. Drag its top bar to move it."
+        statusText.text = "Flowser is running. Controls are also available in the notification."
     }
 
     private fun dp(value: Int): Int =
