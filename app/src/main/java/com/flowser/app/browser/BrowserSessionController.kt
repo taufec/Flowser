@@ -118,8 +118,11 @@ class BrowserSessionController(
             }
 
             override fun onProgressChanged(webView: WebView?, newProgress: Int) {
-                isLoading = newProgress < 100
-                notifyState()
+                val loading = newProgress < 100
+                if (loading != isLoading) {
+                    isLoading = loading
+                    notifyState()
+                }
             }
         }
     }
