@@ -54,9 +54,10 @@ class FloatingWindowController(
 
     fun show(state: BrowserWindowState) {
         val area = displayArea()
-        mode = when (state.mode) {
-            WindowMode.MAXIMIZED -> WindowMode.MAXIMIZED
-            else -> WindowMode.WINDOWED
+        mode = if (state.mode == WindowMode.MAXIMIZED) {
+            WindowMode.MAXIMIZED
+        } else {
+            WindowMode.WINDOWED
         }
         lastNormalGeometry = WindowGeometryEngine.clampWindow(
             state.lastNormalGeometry,
@@ -78,18 +79,21 @@ class FloatingWindowController(
                 windowManager.addView(root, params)
                 attached = true
                 browser.view.requestFocus()
-            } catch (error: Exception) {
+            } catch (_: Exception) {
                 layoutParams = null
                 listener.onCloseRequested()
             }
         } else {
             applyGeometry(currentGeometry, area)
-            root.visibility = View.VISIBLE
         }
     }
 
     fun hidePreservingBrowser() {
-        root.visibility = View.GONE
+        if (attached) {
+            runCatching { windowManager.removeViewImmediate(root) }
+            attached = false
+            layoutParams = null
+        }
     }
 
     fun updateToolbar(state: BrowserUiState) {
@@ -180,14 +184,13 @@ class FloatingWindowController(
 
         resizeHandle.background = GradientDrawable().apply {
             setColor(Color.rgb(31, 36, 48))
-            cornerRadius = dp(4).toFloat()
+            cornerRadius = dp(5).toFloat()
         }
         resizeHandle.contentDescription = "Resize Flowser window"
-        resizeHandle.layoutParams = FrameLayout.LayoutParams(dp(20), dp(20), Gravity.END or Gravity.BOTTOM).apply {
-            rightMargin = dp(4)
-            bottomMargin = dp(4)
+        resizeHandle.layoutParams = FrameLayout.LayoutParams(dp(32), dp(32), Gravity.END or Gravity.BOTTOM).apply {
+            rightMargin = 0
+            bottomMargin = 0
         }
-        resizeHandle.setPadding(dp(6), dp(6), dp(6), dp(6))
         root.addView(resizeHandle)
     }
 
