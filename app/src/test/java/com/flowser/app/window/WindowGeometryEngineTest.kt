@@ -36,7 +36,7 @@ class WindowGeometryEngineTest {
     }
 
     @Test
-    fun clamp_keeps_toolbar_reachable() {
+    fun clamp_keeps_entire_window_inside_bounds() {
         val result = WindowGeometryEngine.clampWindow(
             geometry = WindowGeometry(x = 700, y = 790, width = 400, height = 500),
             bounds = RectSize(width = 1000, height = 800),
@@ -44,7 +44,7 @@ class WindowGeometryEngineTest {
         )
 
         assertEquals(600, result.x)
-        assertEquals(752, result.y)
+        assertEquals(300, result.y)
     }
 
     @Test
