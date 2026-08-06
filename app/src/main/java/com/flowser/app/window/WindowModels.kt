@@ -23,3 +23,15 @@ data class WindowGeometry(
     val width: Int,
     val height: Int
 )
+
+data class BrowserWindowState(
+    val mode: WindowMode,
+    val geometry: WindowGeometry,
+    val lastNormalGeometry: WindowGeometry,
+    val preMinimizeMode: WindowMode,
+    val bubbleX: Int,
+    val bubbleY: Int,
+    val currentUrl: String,
+    val desktopMode: Boolean,
+    val zoomPercent: Int
+)
