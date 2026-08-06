@@ -4,6 +4,7 @@
 
     <application
         android:allowBackup="true"
+        android:hardwareAccelerated="true"
         android:label="Flowser"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
@@ -19,7 +20,8 @@
         </activity>
 
         <service
-            android:name=".FloatingService"
-            android:exported="false" />
+            android:name=".FloatingBrowserService"
+            android:exported="false"
+            android:stopWithTask="false" />
     </application>
 </manifest>
