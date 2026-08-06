@@ -65,45 +65,45 @@ class BubbleController(
     fun show(state: BrowserWindowState) {
         val area = displayArea()
         val point = WindowGeometryEngine.snapBubble(
-            x = state.bubbleX,
-            y = state.bubbleY,
-            bubbleSizePx = bubbleSize(),
-            bounds = area.size
+            state.bubbleX,
+            state.bubbleY,
+            bubbleSize(),
+            area.size
         )
         currentX = point.x
         currentY = point.y
-        if (!bubbleAttached) {
-            val params = WindowManager.LayoutParams(
-                bubbleSize(),
-                bubbleSize(),
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                PixelFormat.TRANSLUCENT
-            ).apply {
-                gravity = Gravity.TOP or Gravity.START
-                x = currentX + area.offsetX
-                y = currentY + area.offsetY
-            }
-            bubbleParams = params
-            try {
-                windowManager.addView(bubble, params)
-                bubbleAttached = true
-            } catch (_: Exception) {
-                bubbleParams = null
-                listener.onCloseRequested()
-            }
-        } else {
-            bubble.visibility = View.VISIBLE
+        if (bubbleAttached) {
             updateBubbleLayout(area)
+            return
+        }
+
+        val params = WindowManager.LayoutParams(
+            bubbleSize(),
+            bubbleSize(),
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = currentX + area.offsetX
+            y = currentY + area.offsetY
+        }
+        bubbleParams = params
+        try {
+            windowManager.addView(bubble, params)
+            bubbleAttached = true
+        } catch (_: Exception) {
+            bubbleParams = null
+            listener.onCloseRequested()
         }
     }
 
     fun hide() {
         cancelSnapAnimation()
-        bubble.visibility = View.GONE
         hideCloseTarget()
+        detachBubble()
     }
 
     fun onConfigurationChanged() {
@@ -124,6 +124,10 @@ class BubbleController(
         handler.removeCallbacksAndMessages(null)
         cancelSnapAnimation()
         hideCloseTarget()
+        detachBubble()
+    }
+
+    private fun detachBubble() {
         if (bubbleAttached) {
             runCatching { windowManager.removeViewImmediate(bubble) }
             bubbleAttached = false
@@ -139,16 +143,14 @@ class BubbleController(
         }
         bubble.elevation = dp(10).toFloat()
         bubble.contentDescription = "Flowser minimized browser"
-
-        val mark = TextView(context).apply {
-            text = "F"
-            textSize = 24f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-            isClickable = false
-        }
         bubble.addView(
-            mark,
+            TextView(context).apply {
+                text = "F"
+                textSize = 24f
+                setTextColor(Color.WHITE)
+                gravity = Gravity.CENTER
+                isClickable = false
+            },
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
@@ -161,7 +163,7 @@ class BubbleController(
         closeTarget.textSize = 34f
         closeTarget.gravity = Gravity.CENTER
         closeTarget.setTextColor(Color.WHITE)
-        closeTarget.background = closeTargetBackground(active = false)
+        closeTarget.background = closeTargetBackground(false)
         closeTarget.elevation = dp(12).toFloat()
     }
 
@@ -205,10 +207,14 @@ class BubbleController(
                             showCloseTarget(area)
                         }
                         if (dragging) {
-                            val maxX = (area.size.width - bubbleSize()).coerceAtLeast(0)
-                            val maxY = (area.size.height - bubbleSize()).coerceAtLeast(0)
-                            currentX = (startLayoutX + dx).coerceIn(0, maxX)
-                            currentY = (startLayoutY + dy).coerceIn(0, maxY)
+                            currentX = (startLayoutX + dx).coerceIn(
+                                0,
+                                (area.size.width - bubbleSize()).coerceAtLeast(0)
+                            )
+                            currentY = (startLayoutY + dy).coerceIn(
+                                0,
+                                (area.size.height - bubbleSize()).coerceAtLeast(0)
+                            )
                             updateBubbleLayout(area)
                             setCloseTargetActive(isInsideCloseTarget(area))
                         }
@@ -390,11 +396,8 @@ class BubbleController(
     }
 
     private fun bubbleSize(): Int = dp(56)
-
     private fun closeTargetSize(): Int = dp(72)
-
     private fun density(): Float = context.resources.displayMetrics.density
-
     private fun dp(value: Int): Int = (value * density()).toInt()
 
     private data class DisplayArea(
