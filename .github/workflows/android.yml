@@ -5,6 +5,10 @@ on:
   push:
     branches:
       - main
+      - prototype/installable-v0.1
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
