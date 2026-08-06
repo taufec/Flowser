@@ -12,7 +12,6 @@ object WindowGeometryEngine {
     private const val DEFAULT_TABLET_WIDTH_RATIO = 0.72f
     private const val DEFAULT_TABLET_HEIGHT_RATIO = 0.72f
     private const val TABLET_BREAKPOINT_DP = 600
-    private const val TOOLBAR_REACHABLE_DP = 48
 
     fun defaultGeometry(bounds: RectSize, density: Float): WindowGeometry {
         val safeDensity = density.coerceAtLeast(0.1f)
@@ -42,8 +41,7 @@ object WindowGeometryEngine {
         val width = geometry.width.coerceIn(minimumWidth, safeWidth)
         val height = geometry.height.coerceIn(minimumHeight, safeHeight)
         val maxX = max(0, safeWidth - width)
-        val toolbarReachable = min(dp(TOOLBAR_REACHABLE_DP, density), safeHeight)
-        val maxY = max(0, safeHeight - toolbarReachable)
+        val maxY = max(0, safeHeight - height)
 
         return WindowGeometry(
             x = geometry.x.coerceIn(0, maxX),
