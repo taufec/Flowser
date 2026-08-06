@@ -1,5 +1,7 @@
 package com.flowser.app.window
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Color
@@ -99,6 +101,7 @@ class BubbleController(
     }
 
     fun hide() {
+        cancelSnapAnimation()
         bubble.visibility = View.GONE
         hideCloseTarget()
     }
@@ -119,7 +122,7 @@ class BubbleController(
 
     fun destroy() {
         handler.removeCallbacksAndMessages(null)
-        snapAnimator?.cancel()
+        cancelSnapAnimation()
         hideCloseTarget()
         if (bubbleAttached) {
             runCatching { windowManager.removeViewImmediate(bubble) }
@@ -180,7 +183,7 @@ class BubbleController(
                 val area = displayArea()
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
-                        snapAnimator?.cancel()
+                        cancelSnapAnimation()
                         startLayoutX = currentX
                         startLayoutY = currentY
                         startTouchX = event.rawX
@@ -318,7 +321,7 @@ class BubbleController(
         )
         val startX = currentX
         val startY = currentY
-        snapAnimator?.cancel()
+        cancelSnapAnimation()
         snapAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = 160L
             addUpdateListener { animator ->
@@ -327,21 +330,31 @@ class BubbleController(
                 currentY = (startY + (destination.y - startY) * fraction).toInt()
                 updateBubbleLayout(area)
             }
-            doOnAnimationEnd {
-                currentX = destination.x
-                currentY = destination.y
-                updateBubbleLayout(area)
-                repository.saveBubblePosition(currentX, currentY)
-                listener.onBubblePositionChanged(currentX, currentY)
-            }
+            addListener(object : AnimatorListenerAdapter() {
+                private var cancelled = false
+
+                override fun onAnimationCancel(animation: Animator) {
+                    cancelled = true
+                }
+
+                override fun onAnimationEnd(animation: Animator) {
+                    if (cancelled) return
+                    currentX = destination.x
+                    currentY = destination.y
+                    updateBubbleLayout(area)
+                    repository.saveBubblePosition(currentX, currentY)
+                    listener.onBubblePositionChanged(currentX, currentY)
+                    snapAnimator = null
+                }
+            })
             start()
         }
     }
 
-    private fun ValueAnimator.doOnAnimationEnd(block: () -> Unit) {
-        addListener(object : android.animation.AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: android.animation.Animator) = block()
-        })
+    private fun cancelSnapAnimation() {
+        val animator = snapAnimator
+        snapAnimator = null
+        animator?.cancel()
     }
 
     private fun updateBubbleLayout(area: DisplayArea = displayArea()) {
