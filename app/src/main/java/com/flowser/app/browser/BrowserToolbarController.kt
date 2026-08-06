@@ -84,7 +84,7 @@ class BrowserToolbarController(
     private fun rebuild() {
         view.removeAllViews()
         val compact = BrowserToolbarPolicy.isCompact(
-            lastWidthPx.coerceAtLeast(dp(420)),
+            lastWidthPx.coerceAtLeast(1),
             context.resources.displayMetrics.density
         )
 
