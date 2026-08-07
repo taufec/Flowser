@@ -3,19 +3,29 @@ package com.flowser.app.browser
 import android.content.Context
 import android.graphics.Color
 import android.net.Uri
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.PopupMenu
 import android.widget.TextView
 
-internal object BrowserToolbarPolicy {
-    private const val COMPACT_BREAKPOINT_DP = 420
+internal enum class ToolbarInteraction {
+    OPEN_MENU,
+    MINIMIZE,
+    CLOSE
+}
 
-    fun isCompact(windowWidthPx: Int, density: Float): Boolean =
-        windowWidthPx / density.coerceAtLeast(0.1f) < COMPACT_BREAKPOINT_DP
+internal object BrowserToolbarPolicy {
+    fun toolbarHeightDp(): Int = 24
+
+    fun titleTapInteraction(): ToolbarInteraction = ToolbarInteraction.OPEN_MENU
+
+    fun minimizeTapInteraction(): ToolbarInteraction = ToolbarInteraction.MINIMIZE
+
+    fun minimizeLongPressInteraction(): ToolbarInteraction = ToolbarInteraction.CLOSE
 
     fun reloadLabel(isLoading: Boolean): String = if (isLoading) "Stop" else "Reload"
 
@@ -38,21 +48,24 @@ class BrowserToolbarController(
     private val browser: BrowserSessionController,
     private val actions: BrowserWindowActions
 ) {
-    val view: LinearLayout = LinearLayout(context).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
+    val view: FrameLayout = FrameLayout(context).apply {
         setBackgroundColor(Color.rgb(31, 36, 48))
-        setPadding(dp(4), 0, dp(4), 0)
     }
+
+    val heightPx: Int
+        get() = dp(BrowserToolbarPolicy.toolbarHeightDp())
 
     private val titleView = TextView(context).apply {
         setTextColor(Color.WHITE)
-        textSize = 14f
+        textSize = 11f
         isSingleLine = true
-        gravity = Gravity.CENTER_VERTICAL
-        setPadding(dp(10), 0, dp(10), 0)
-        contentDescription = "Current website. Tap to edit address."
-        setOnClickListener { actions.editAddress(lastState.url) }
+        ellipsize = TextUtils.TruncateAt.END
+        gravity = Gravity.CENTER
+        setPadding(dp(64), 0, dp(64), 0)
+        contentDescription = "Current website. Tap for browser menu."
+        setOnClickListener {
+            performInteraction(BrowserToolbarPolicy.titleTapInteraction(), this)
+        }
     }
 
     val dragSurface: View
@@ -67,7 +80,6 @@ class BrowserToolbarController(
         desktopMode = false,
         zoomPercent = 100
     )
-    private var lastWidthPx = 0
     private var isMaximized = false
 
     fun render(
@@ -76,60 +88,73 @@ class BrowserToolbarController(
         maximized: Boolean = isMaximized
     ) {
         lastState = state
-        lastWidthPx = windowWidthPx
         isMaximized = maximized
         rebuild()
     }
 
     private fun rebuild() {
         view.removeAllViews()
-        val compact = BrowserToolbarPolicy.isCompact(
-            lastWidthPx.coerceAtLeast(1),
-            context.resources.displayMetrics.density
-        )
-
-        view.addView(toolbarButton("‹", "Back") {
-            browser.goBack()
-        }.apply { isEnabled = lastState.canGoBack })
-
-        if (!compact) {
-            view.addView(toolbarButton("›", "Forward") {
-                browser.goForward()
-            }.apply { isEnabled = lastState.canGoForward })
-        }
 
         titleView.text = lastState.title.ifBlank {
             runCatching { Uri.parse(lastState.url).host }.getOrNull() ?: "Flowser"
         }
-        titleView.layoutParams = LinearLayout.LayoutParams(
-            0,
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            1f
+        view.addView(
+            titleView,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.CENTER
+            )
         )
-        view.addView(titleView)
 
-        view.addView(toolbarButton(
-            if (lastState.isLoading) "■" else "↻",
-            BrowserToolbarPolicy.reloadLabel(lastState.isLoading)
-        ) {
-            if (lastState.isLoading) browser.stopLoading() else browser.reload()
-        })
-
-        view.addView(toolbarButton("_", "Minimize") { actions.minimize() })
-
-        if (!compact) {
-            view.addView(toolbarButton(
-                if (isMaximized) "❐" else "□",
-                BrowserToolbarPolicy.maximizeLabel(isMaximized)
-            ) { actions.toggleMaximize() })
+        val navigation = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
+        navigation.addView(
+            toolbarButton("<", "Back") { browser.goBack() }.apply {
+                isEnabled = lastState.canGoBack
+            },
+            LinearLayout.LayoutParams(dp(28), ViewGroup.LayoutParams.MATCH_PARENT)
+        )
+        navigation.addView(
+            toolbarButton(">", "Forward") { browser.goForward() }.apply {
+                isEnabled = lastState.canGoForward
+            },
+            LinearLayout.LayoutParams(dp(28), ViewGroup.LayoutParams.MATCH_PARENT)
+        )
+        view.addView(
+            navigation,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.START or Gravity.CENTER_VERTICAL
+            )
+        )
 
-        view.addView(toolbarButton("⋮", "Browser menu") { anchor ->
-            showMenu(anchor)
-        })
+        val minimize = toolbarButton("—", "Minimize. Long press to close Flowser.") {
+            performInteraction(BrowserToolbarPolicy.minimizeTapInteraction(), it)
+        }.apply {
+            setOnLongClickListener {
+                performInteraction(BrowserToolbarPolicy.minimizeLongPressInteraction(), this)
+                true
+            }
+        }
+        view.addView(
+            minimize,
+            FrameLayout.LayoutParams(
+                dp(32),
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.END or Gravity.CENTER_VERTICAL
+            )
+        )
+    }
 
-        if (!compact) {
-            view.addView(toolbarButton("×", "Close Flowser") { actions.close() })
+    private fun performInteraction(interaction: ToolbarInteraction, anchor: View) {
+        when (interaction) {
+            ToolbarInteraction.OPEN_MENU -> showMenu(anchor)
+            ToolbarInteraction.MINIMIZE -> actions.minimize()
+            ToolbarInteraction.CLOSE -> actions.close()
         }
     }
 
@@ -185,19 +210,14 @@ class BrowserToolbarController(
         label: String,
         description: String,
         action: (View) -> Unit
-    ): Button = Button(context).apply {
+    ): TextView = TextView(context).apply {
         text = label
         contentDescription = description
-        textSize = 20f
+        textSize = 15f
         setTextColor(Color.WHITE)
+        gravity = Gravity.CENTER
         setBackgroundColor(Color.TRANSPARENT)
-        isAllCaps = false
-        minWidth = dp(48)
-        minimumWidth = dp(48)
-        minHeight = dp(48)
-        minimumHeight = dp(48)
-        setPadding(0, 0, 0, 0)
-        layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
+        includeFontPadding = false
         setOnClickListener { action(it) }
     }
 

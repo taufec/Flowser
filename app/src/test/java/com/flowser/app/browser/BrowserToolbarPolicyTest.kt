@@ -1,19 +1,36 @@
 package com.flowser.app.browser
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BrowserToolbarPolicyTest {
     @Test
-    fun width_below_420dp_uses_compact_toolbar() {
-        assertTrue(BrowserToolbarPolicy.isCompact(windowWidthPx = 838, density = 2f))
+    fun toolbar_height_is_half_the_original_48dp() {
+        assertEquals(24, BrowserToolbarPolicy.toolbarHeightDp())
     }
 
     @Test
-    fun width_at_420dp_uses_wide_toolbar() {
-        assertFalse(BrowserToolbarPolicy.isCompact(windowWidthPx = 840, density = 2f))
+    fun title_tap_opens_browser_menu() {
+        assertEquals(
+            ToolbarInteraction.OPEN_MENU,
+            BrowserToolbarPolicy.titleTapInteraction()
+        )
+    }
+
+    @Test
+    fun minimize_tap_minimizes_window() {
+        assertEquals(
+            ToolbarInteraction.MINIMIZE,
+            BrowserToolbarPolicy.minimizeTapInteraction()
+        )
+    }
+
+    @Test
+    fun minimize_long_press_closes_window() {
+        assertEquals(
+            ToolbarInteraction.CLOSE,
+            BrowserToolbarPolicy.minimizeLongPressInteraction()
+        )
     }
 
     @Test

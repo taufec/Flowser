@@ -66,7 +66,7 @@ class FloatingWindowController(
             state.lastNormalGeometry,
             area.size,
             density(),
-            toolbarHeightPx()
+            toolbar.heightPx
         )
         currentGeometry = if (mode == WindowMode.MAXIMIZED) {
             WindowGeometryEngine.maximizedGeometry(area.size)
@@ -75,7 +75,7 @@ class FloatingWindowController(
                 state.geometry,
                 area.size,
                 density(),
-                toolbarHeightPx()
+                toolbar.heightPx
             )
         }
         resizeHandle.visibility = if (mode == WindowMode.WINDOWED) View.VISIBLE else View.GONE
@@ -120,7 +120,7 @@ class FloatingWindowController(
                 lastNormalGeometry,
                 area.size,
                 density(),
-                toolbarHeightPx()
+                toolbar.heightPx
             )
             resizeHandle.visibility = View.VISIBLE
         } else {
@@ -142,7 +142,7 @@ class FloatingWindowController(
             lastNormalGeometry,
             area.size,
             density(),
-            toolbarHeightPx()
+            toolbar.heightPx
         )
         currentGeometry = if (mode == WindowMode.MAXIMIZED) {
             WindowGeometryEngine.maximizedGeometry(area.size)
@@ -151,7 +151,7 @@ class FloatingWindowController(
                 currentGeometry,
                 area.size,
                 density(),
-                toolbarHeightPx()
+                toolbar.heightPx
             )
         }
         applyGeometry(currentGeometry, area)
@@ -190,7 +190,7 @@ class FloatingWindowController(
 
         toolbar.view.layoutParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            toolbarHeightPx()
+            toolbar.heightPx
         )
         browser.view.layoutParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -302,7 +302,7 @@ class FloatingWindowController(
                             currentGeometry = WindowGeometryEngine.clampDraggedWindow(
                                 currentGeometry.copy(x = startX + dx, y = startY + dy),
                                 area.size,
-                                toolbarHeightPx()
+                                toolbar.heightPx
                             )
                             applyGeometry(currentGeometry, area)
                         }
@@ -421,8 +421,6 @@ class FloatingWindowController(
             offsetY = 0
         )
     }
-
-    private fun toolbarHeightPx(): Int = dp(48)
 
     private fun density(): Float = context.resources.displayMetrics.density
 
