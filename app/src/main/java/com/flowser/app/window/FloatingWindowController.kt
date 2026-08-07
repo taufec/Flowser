@@ -13,6 +13,7 @@ import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowManager
+import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import com.flowser.app.browser.BrowserSessionController
@@ -35,7 +36,7 @@ class FloatingWindowController(
     private val listener: FloatingWindowListener
 ) {
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-    private val root = FrameLayout(context)
+    private val root = OutsideAwareFrameLayout(context) { releaseBrowserInputFocus() }
     private val content = LinearLayout(context)
     private val resizeHandle = View(context)
 
@@ -45,9 +46,11 @@ class FloatingWindowController(
     private var lastNormalGeometry = currentGeometry
     private var mode = WindowMode.WINDOWED
     private var lastBrowserState = browser.currentState()
+    private var inputState = OverlayInputPolicy.afterOutsideTouch()
 
     init {
         buildViewHierarchy()
+        installInputFocusHandoff()
         installDragHandler()
         installResizeHandler()
     }
@@ -75,20 +78,22 @@ class FloatingWindowController(
         if (!attached) {
             val params = createLayoutParams(currentGeometry, area)
             layoutParams = params
+            inputState = OverlayInputPolicy.afterOutsideTouch()
             try {
                 windowManager.addView(root, params)
                 attached = true
-                browser.view.requestFocus()
             } catch (_: Exception) {
                 layoutParams = null
                 listener.onCloseRequested()
             }
         } else {
             applyGeometry(currentGeometry, area)
+            applyInputFocusState()
         }
     }
 
     fun hidePreservingBrowser() {
+        releaseBrowserInputFocus()
         if (attached) {
             runCatching { windowManager.removeViewImmediate(root) }
             attached = false
@@ -147,6 +152,7 @@ class FloatingWindowController(
     fun normalGeometry(): WindowGeometry = lastNormalGeometry
 
     fun destroy() {
+        releaseBrowserInputFocus()
         if (attached) {
             runCatching { windowManager.removeViewImmediate(root) }
             attached = false
@@ -192,6 +198,48 @@ class FloatingWindowController(
             bottomMargin = 0
         }
         root.addView(resizeHandle)
+    }
+
+    private fun installInputFocusHandoff() {
+        browser.view.setOnTouchListener { _, event ->
+            if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                acquireBrowserInputFocus()
+            }
+            false
+        }
+    }
+
+    private fun acquireBrowserInputFocus() {
+        inputState = OverlayInputPolicy.afterBrowserTouch()
+        applyInputFocusState()
+        browser.view.post {
+            if (attached && inputState.browserOwnsKeyboard) {
+                browser.view.requestFocus()
+            }
+        }
+    }
+
+    private fun releaseBrowserInputFocus() {
+        inputState = OverlayInputPolicy.afterOutsideTouch()
+        browser.view.clearFocus()
+        val inputMethodManager = context.getSystemService(InputMethodManager::class.java)
+        runCatching {
+            inputMethodManager?.hideSoftInputFromWindow(root.windowToken, 0)
+        }
+        applyInputFocusState()
+    }
+
+    private fun applyInputFocusState() {
+        val params = layoutParams ?: return
+        val oldFlags = params.flags
+        params.flags = if (inputState.browserOwnsKeyboard) {
+            params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+        } else {
+            params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        }
+        if (attached && oldFlags != params.flags) {
+            runCatching { windowManager.updateViewLayout(root, params) }
+        }
     }
 
     private fun installDragHandler() {
@@ -317,7 +365,9 @@ class FloatingWindowController(
         geometry.height,
         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
         WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
         PixelFormat.TRANSLUCENT
     ).apply {
         gravity = Gravity.TOP or Gravity.START
@@ -368,4 +418,17 @@ class FloatingWindowController(
         val offsetX: Int,
         val offsetY: Int
     )
+
+    private class OutsideAwareFrameLayout(
+        context: Context,
+        private val onOutsideTouch: () -> Unit
+    ) : FrameLayout(context) {
+        override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+            if (event.actionMasked == MotionEvent.ACTION_OUTSIDE) {
+                onOutsideTouch()
+                return true
+            }
+            return super.dispatchTouchEvent(event)
+        }
+    }
 }
