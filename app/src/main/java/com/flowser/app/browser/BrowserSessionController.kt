@@ -2,6 +2,7 @@ package com.flowser.app.browser
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Bitmap
 import android.net.Uri
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebChromeClient
@@ -36,6 +37,7 @@ data class BrowserUiState(
 interface BrowserUiListener {
     fun onBrowserUiStateChanged(state: BrowserUiState)
     fun onRendererGone()
+    fun onFaviconChanged(favicon: Bitmap?) {}
 }
 
 class BrowserSessionController(
@@ -48,6 +50,7 @@ class BrowserSessionController(
     private val mobileUserAgent: String
     private var currentUrl: String = homeUrl
     private var currentTitle: String = "Flowser"
+    private var currentFavicon: Bitmap? = null
     private var isLoading: Boolean = false
     private var desktopMode: Boolean = false
     private var zoomPercent: Int = 100
@@ -86,8 +89,12 @@ class BrowserSessionController(
             @Deprecated("Deprecated in Android")
             override fun shouldOverrideUrlLoading(webView: WebView, url: String): Boolean = false
 
-            override fun onPageStarted(webView: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+            override fun onPageStarted(webView: WebView, url: String?, favicon: Bitmap?) {
                 currentUrl = url?.takeIf { it.isNotBlank() } ?: currentUrl
+                if (favicon != null) {
+                    currentFavicon = favicon
+                    listener.onFaviconChanged(favicon)
+                }
                 isLoading = true
                 notifyState()
             }
@@ -117,6 +124,11 @@ class BrowserSessionController(
                 notifyState()
             }
 
+            override fun onReceivedIcon(webView: WebView?, icon: Bitmap?) {
+                currentFavicon = icon
+                listener.onFaviconChanged(icon)
+            }
+
             override fun onProgressChanged(webView: WebView?, newProgress: Int) {
                 val loading = newProgress < 100
                 if (loading != isLoading) {
@@ -130,6 +142,8 @@ class BrowserSessionController(
     fun load(url: String) {
         if (destroyed) return
         currentUrl = url
+        currentFavicon = null
+        listener.onFaviconChanged(null)
         view.loadUrl(url)
         notifyState()
     }
@@ -179,9 +193,12 @@ class BrowserSessionController(
 
     fun currentState(): BrowserUiState = snapshot()
 
+    fun currentFavicon(): Bitmap? = currentFavicon
+
     fun destroy() {
         if (destroyed) return
         destroyed = true
+        currentFavicon = null
         runCatching {
             view.stopLoading()
             view.loadUrl("about:blank")

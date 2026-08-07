@@ -6,6 +6,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
@@ -116,7 +117,7 @@ class FloatingBrowserService : Service(),
         browser.load(url)
 
         if (loaded.mode == WindowMode.MINIMIZED) {
-            bubbleController?.show(loaded)
+            bubbleController?.show(loaded, browser.currentFavicon())
         } else {
             windowController?.show(loaded)
         }
@@ -159,6 +160,12 @@ class FloatingBrowserService : Service(),
         updateNotification()
     }
 
+    override fun onFaviconChanged(favicon: Bitmap?) {
+        if (state?.mode == WindowMode.MINIMIZED) {
+            bubbleController?.updateFavicon(favicon)
+        }
+    }
+
     override fun onRendererGone() {
         Toast.makeText(this, "The website process stopped. Close and reopen Flowser.", Toast.LENGTH_LONG).show()
         closeSession()
@@ -181,7 +188,7 @@ class FloatingBrowserService : Service(),
         )
         state = minimized
         window.hidePreservingBrowser()
-        bubbleController?.show(minimized)
+        bubbleController?.show(minimized, browserController?.currentFavicon())
         persistState()
         updateNotification()
     }

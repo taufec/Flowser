@@ -4,6 +4,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -17,6 +18,7 @@ import android.view.ViewConfiguration
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.PopupMenu
 import android.widget.TextView
 import kotlin.math.abs
@@ -45,6 +47,8 @@ class BubbleController(
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private val handler = Handler(Looper.getMainLooper())
     private val bubble = FrameLayout(context)
+    private val faviconView = ImageView(context)
+    private val fallbackView = TextView(context)
     private val closeTarget = TextView(context)
 
     private var bubbleParams: WindowManager.LayoutParams? = null
@@ -62,7 +66,8 @@ class BubbleController(
         installGestureHandler()
     }
 
-    fun show(state: BrowserWindowState) {
+    fun show(state: BrowserWindowState, favicon: Bitmap? = null) {
+        updateFavicon(favicon)
         val area = displayArea()
         val point = WindowGeometryEngine.snapBubble(
             state.bubbleX,
@@ -100,6 +105,22 @@ class BubbleController(
         }
     }
 
+    fun updateFavicon(favicon: Bitmap?) {
+        when (BubbleIconPolicy.mode(favicon != null)) {
+            BubbleIconMode.FAVICON -> {
+                faviconView.setImageBitmap(favicon)
+                faviconView.visibility = View.VISIBLE
+                fallbackView.visibility = View.GONE
+            }
+
+            BubbleIconMode.FALLBACK -> {
+                faviconView.setImageDrawable(null)
+                faviconView.visibility = View.GONE
+                fallbackView.visibility = View.VISIBLE
+            }
+        }
+    }
+
     fun hide() {
         cancelSnapAnimation()
         hideCloseTarget()
@@ -125,6 +146,7 @@ class BubbleController(
         cancelSnapAnimation()
         hideCloseTarget()
         detachBubble()
+        faviconView.setImageDrawable(null)
     }
 
     private fun detachBubble() {
@@ -143,14 +165,32 @@ class BubbleController(
         }
         bubble.elevation = dp(10).toFloat()
         bubble.contentDescription = "Flowser minimized browser"
+        bubble.clipToOutline = true
+
+        faviconView.apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            visibility = View.GONE
+            contentDescription = "Website favicon"
+        }
         bubble.addView(
-            TextView(context).apply {
-                text = "F"
-                textSize = 24f
-                setTextColor(Color.WHITE)
-                gravity = Gravity.CENTER
-                isClickable = false
-            },
+            faviconView,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            ).apply {
+                setMargins(dp(5), dp(5), dp(5), dp(5))
+            }
+        )
+
+        fallbackView.apply {
+            text = "F"
+            textSize = 24f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            isClickable = false
+        }
+        bubble.addView(
+            fallbackView,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
