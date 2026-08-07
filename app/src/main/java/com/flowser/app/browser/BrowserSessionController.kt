@@ -101,6 +101,7 @@ class BrowserSessionController(
 
             override fun onPageFinished(webView: WebView, url: String?) {
                 currentUrl = url?.takeIf { it.isNotBlank() } ?: currentUrl
+                injectPageCompatibility(webView, currentUrl)
                 isLoading = false
                 notifyState()
             }
@@ -206,6 +207,11 @@ class BrowserSessionController(
             view.removeAllViews()
             view.destroy()
         }
+    }
+
+    private fun injectPageCompatibility(webView: WebView, url: String) {
+        if (!TickTickCompatibility.shouldInject(url)) return
+        runCatching { webView.evaluateJavascript(TickTickCompatibility.script(), null) }
     }
 
     private fun applyZoom(value: Int) {
