@@ -130,6 +130,46 @@ class WindowGeometryEngineTest {
     }
 
     @Test
+    fun bottom_left_resize_keeps_right_edge_fixed() {
+        val result = WindowGeometryEngine.resizeFromBottomLeft(
+            start = WindowGeometry(x = 100, y = 100, width = 400, height = 400),
+            deltaX = -100,
+            deltaY = 50,
+            bounds = RectSize(width = 1000, height = 900),
+            density = 1f
+        )
+
+        assertEquals(WindowGeometry(x = 0, y = 100, width = 500, height = 450), result)
+        assertEquals(500, result.x + result.width)
+    }
+
+    @Test
+    fun bottom_left_resize_shrinks_from_left_side() {
+        val result = WindowGeometryEngine.resizeFromBottomLeft(
+            start = WindowGeometry(x = 100, y = 100, width = 400, height = 400),
+            deltaX = 100,
+            deltaY = 0,
+            bounds = RectSize(width = 1000, height = 900),
+            density = 1f
+        )
+
+        assertEquals(WindowGeometry(x = 200, y = 100, width = 300, height = 400), result)
+    }
+
+    @Test
+    fun bottom_left_resize_respects_minimum_width() {
+        val result = WindowGeometryEngine.resizeFromBottomLeft(
+            start = WindowGeometry(x = 100, y = 100, width = 300, height = 400),
+            deltaX = 1000,
+            deltaY = 0,
+            bounds = RectSize(width = 1000, height = 900),
+            density = 1f
+        )
+
+        assertEquals(WindowGeometry(x = 120, y = 100, width = 280, height = 400), result)
+    }
+
+    @Test
     fun maximize_fills_usable_bounds() {
         assertEquals(
             WindowGeometry(x = 0, y = 0, width = 1280, height = 720),

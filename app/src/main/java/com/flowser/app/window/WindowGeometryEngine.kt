@@ -99,16 +99,41 @@ object WindowGeometryEngine {
         val safeHeight = bounds.height.coerceAtLeast(0)
         val minimumWidth = min(dp(MIN_WIDTH_DP, density), safeWidth)
         val minimumHeight = min(dp(MIN_HEIGHT_DP, density), safeHeight)
-        val x = start.x.coerceIn(0, max(0, safeWidth - minimumWidth))
-        val y = start.y.coerceIn(0, max(0, safeHeight - minimumHeight))
-        val maximumWidth = max(minimumWidth, safeWidth - x)
-        val maximumHeight = max(minimumHeight, safeHeight - y)
+        val x = start.x
+        val y = start.y
+        val maximumWidth = max(minimumWidth, max(start.width, safeWidth - x))
+        val maximumHeight = max(minimumHeight, max(start.height, safeHeight - y))
         val width = (start.width + deltaX).coerceIn(minimumWidth, maximumWidth)
         val height = (start.height + deltaY).coerceIn(minimumHeight, maximumHeight)
 
         return WindowGeometry(
             x = x,
             y = y,
+            width = width,
+            height = height
+        )
+    }
+
+    fun resizeFromBottomLeft(
+        start: WindowGeometry,
+        deltaX: Int,
+        deltaY: Int,
+        bounds: RectSize,
+        density: Float
+    ): WindowGeometry {
+        val safeWidth = bounds.width.coerceAtLeast(0)
+        val safeHeight = bounds.height.coerceAtLeast(0)
+        val minimumWidth = min(dp(MIN_WIDTH_DP, density), safeWidth)
+        val minimumHeight = min(dp(MIN_HEIGHT_DP, density), safeHeight)
+        val rightEdge = start.x + start.width
+        val maximumWidth = max(minimumWidth, max(start.width, rightEdge))
+        val maximumHeight = max(minimumHeight, max(start.height, safeHeight - start.y))
+        val width = (start.width - deltaX).coerceIn(minimumWidth, maximumWidth)
+        val height = (start.height + deltaY).coerceIn(minimumHeight, maximumHeight)
+
+        return WindowGeometry(
+            x = rightEdge - width,
+            y = start.y,
             width = width,
             height = height
         )

@@ -38,7 +38,8 @@ class FloatingWindowController(
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private val root = OutsideAwareFrameLayout(context) { releaseBrowserInputFocus() }
     private val content = LinearLayout(context)
-    private val resizeHandle = View(context)
+    private val resizeHandleLeft = View(context)
+    private val resizeHandleRight = View(context)
 
     private var layoutParams: WindowManager.LayoutParams? = null
     private var attached = false
@@ -52,7 +53,7 @@ class FloatingWindowController(
         buildViewHierarchy()
         installInputFocusHandoff()
         installDragHandler()
-        installResizeHandler()
+        installResizeHandlers()
     }
 
     fun show(state: BrowserWindowState) {
@@ -78,7 +79,7 @@ class FloatingWindowController(
                 toolbar.heightPx
             )
         }
-        resizeHandle.visibility = if (mode == WindowMode.WINDOWED) View.VISIBLE else View.GONE
+        setResizeHandlesVisible(mode == WindowMode.WINDOWED)
         toolbar.render(lastBrowserState, currentGeometry.width, mode == WindowMode.MAXIMIZED)
 
         if (!attached) {
@@ -122,12 +123,12 @@ class FloatingWindowController(
                 density(),
                 toolbar.heightPx
             )
-            resizeHandle.visibility = View.VISIBLE
+            setResizeHandlesVisible(true)
         } else {
             lastNormalGeometry = currentGeometry
             mode = WindowMode.MAXIMIZED
             currentGeometry = WindowGeometryEngine.maximizedGeometry(area.size)
-            resizeHandle.visibility = View.GONE
+            setResizeHandlesVisible(false)
         }
         applyGeometry(currentGeometry, area)
         toolbar.render(lastBrowserState, currentGeometry.width, mode == WindowMode.MAXIMIZED)
@@ -201,16 +202,33 @@ class FloatingWindowController(
         content.addView(browser.view)
         root.addView(content)
 
-        resizeHandle.background = GradientDrawable().apply {
-            setColor(Color.rgb(31, 36, 48))
-            cornerRadius = dp(5).toFloat()
-        }
-        resizeHandle.contentDescription = "Resize Flowser window"
-        resizeHandle.layoutParams = FrameLayout.LayoutParams(dp(32), dp(32), Gravity.END or Gravity.BOTTOM).apply {
-            rightMargin = 0
-            bottomMargin = 0
-        }
-        root.addView(resizeHandle)
+        configureResizeHandle(resizeHandleLeft, "Resize Flowser from bottom-left corner")
+        configureResizeHandle(resizeHandleRight, "Resize Flowser from bottom-right corner")
+        val handleSize = dp(ResizeHandlePolicy.touchTargetDp())
+        resizeHandleLeft.layoutParams = FrameLayout.LayoutParams(
+            handleSize,
+            handleSize,
+            Gravity.START or Gravity.BOTTOM
+        )
+        resizeHandleRight.layoutParams = FrameLayout.LayoutParams(
+            handleSize,
+            handleSize,
+            Gravity.END or Gravity.BOTTOM
+        )
+        root.addView(resizeHandleLeft)
+        root.addView(resizeHandleRight)
+    }
+
+    private fun configureResizeHandle(handle: View, description: String) {
+        handle.contentDescription = description
+        handle.alpha = ResizeHandlePolicy.visualAlpha()
+        handle.setBackgroundColor(Color.TRANSPARENT)
+    }
+
+    private fun setResizeHandlesVisible(visible: Boolean) {
+        val visibility = if (visible) View.VISIBLE else View.GONE
+        resizeHandleLeft.visibility = visibility
+        resizeHandleRight.visibility = visibility
     }
 
     private fun installInputFocusHandoff() {
@@ -317,9 +335,14 @@ class FloatingWindowController(
         })
     }
 
-    private fun installResizeHandler() {
+    private fun installResizeHandlers() {
+        installResizeHandler(resizeHandleLeft, ResizeCorner.BOTTOM_LEFT)
+        installResizeHandler(resizeHandleRight, ResizeCorner.BOTTOM_RIGHT)
+    }
+
+    private fun installResizeHandler(handle: View, corner: ResizeCorner) {
         val slop = ViewConfiguration.get(context).scaledTouchSlop
-        resizeHandle.setOnTouchListener(object : View.OnTouchListener {
+        handle.setOnTouchListener(object : View.OnTouchListener {
             private var startGeometry = currentGeometry
             private var touchX = 0f
             private var touchY = 0f
@@ -341,13 +364,23 @@ class FloatingWindowController(
                         if (!resizing && (abs(dx) > slop || abs(dy) > slop)) resizing = true
                         if (resizing) {
                             val area = displayArea()
-                            currentGeometry = WindowGeometryEngine.resizeFromBottomRight(
-                                startGeometry,
-                                dx,
-                                dy,
-                                area.size,
-                                density()
-                            )
+                            currentGeometry = when (corner) {
+                                ResizeCorner.BOTTOM_LEFT -> WindowGeometryEngine.resizeFromBottomLeft(
+                                    startGeometry,
+                                    dx,
+                                    dy,
+                                    area.size,
+                                    density()
+                                )
+
+                                ResizeCorner.BOTTOM_RIGHT -> WindowGeometryEngine.resizeFromBottomRight(
+                                    startGeometry,
+                                    dx,
+                                    dy,
+                                    area.size,
+                                    density()
+                                )
+                            }
                             lastNormalGeometry = currentGeometry
                             applyGeometry(currentGeometry, area)
                             toolbar.render(lastBrowserState, currentGeometry.width, false)
@@ -431,6 +464,11 @@ class FloatingWindowController(
         val offsetX: Int,
         val offsetY: Int
     )
+
+    private enum class ResizeCorner {
+        BOTTOM_LEFT,
+        BOTTOM_RIGHT
+    }
 
     private class OutsideAwareFrameLayout(
         context: Context,
