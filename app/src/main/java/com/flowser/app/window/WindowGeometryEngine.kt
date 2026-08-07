@@ -51,6 +51,43 @@ object WindowGeometryEngine {
         )
     }
 
+    fun clampDraggedWindow(
+        geometry: WindowGeometry,
+        bounds: RectSize,
+        toolbarHeightPx: Int
+    ): WindowGeometry {
+        val safeWidth = bounds.width.coerceAtLeast(1)
+        val safeHeight = bounds.height.coerceAtLeast(1)
+        val width = geometry.width.coerceAtLeast(1)
+        val height = geometry.height.coerceAtLeast(1)
+        val halfWidth = width / 2
+        val halfHeight = height / 2
+        val safeToolbarHeight = toolbarHeightPx.coerceIn(1, height)
+        val minX = -halfWidth
+        val maxX = safeWidth - halfWidth
+        val minY = -(safeToolbarHeight / 2)
+        val maxY = safeHeight - halfHeight
+
+        return geometry.copy(
+            x = geometry.x.coerceIn(minX, maxX),
+            y = geometry.y.coerceIn(minY, maxY)
+        )
+    }
+
+    fun clampPartiallyVisibleWindow(
+        geometry: WindowGeometry,
+        bounds: RectSize,
+        density: Float,
+        toolbarHeightPx: Int
+    ): WindowGeometry {
+        val sized = clampWindow(
+            geometry = geometry.copy(x = 0, y = 0),
+            bounds = bounds,
+            density = density
+        ).copy(x = geometry.x, y = geometry.y)
+        return clampDraggedWindow(sized, bounds, toolbarHeightPx)
+    }
+
     fun resizeFromBottomRight(
         start: WindowGeometry,
         deltaX: Int,

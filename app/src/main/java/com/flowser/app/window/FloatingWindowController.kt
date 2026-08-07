@@ -62,15 +62,21 @@ class FloatingWindowController(
         } else {
             WindowMode.WINDOWED
         }
-        lastNormalGeometry = WindowGeometryEngine.clampWindow(
+        lastNormalGeometry = WindowGeometryEngine.clampPartiallyVisibleWindow(
             state.lastNormalGeometry,
             area.size,
-            density()
+            density(),
+            toolbarHeightPx()
         )
         currentGeometry = if (mode == WindowMode.MAXIMIZED) {
             WindowGeometryEngine.maximizedGeometry(area.size)
         } else {
-            WindowGeometryEngine.clampWindow(state.geometry, area.size, density())
+            WindowGeometryEngine.clampPartiallyVisibleWindow(
+                state.geometry,
+                area.size,
+                density(),
+                toolbarHeightPx()
+            )
         }
         resizeHandle.visibility = if (mode == WindowMode.WINDOWED) View.VISIBLE else View.GONE
         toolbar.render(lastBrowserState, currentGeometry.width, mode == WindowMode.MAXIMIZED)
@@ -110,10 +116,11 @@ class FloatingWindowController(
         val area = displayArea()
         if (mode == WindowMode.MAXIMIZED) {
             mode = WindowMode.WINDOWED
-            currentGeometry = WindowGeometryEngine.clampWindow(
+            currentGeometry = WindowGeometryEngine.clampPartiallyVisibleWindow(
                 lastNormalGeometry,
                 area.size,
-                density()
+                density(),
+                toolbarHeightPx()
             )
             resizeHandle.visibility = View.VISIBLE
         } else {
@@ -131,15 +138,21 @@ class FloatingWindowController(
 
     fun onConfigurationChanged() {
         val area = displayArea()
-        lastNormalGeometry = WindowGeometryEngine.clampWindow(
+        lastNormalGeometry = WindowGeometryEngine.clampPartiallyVisibleWindow(
             lastNormalGeometry,
             area.size,
-            density()
+            density(),
+            toolbarHeightPx()
         )
         currentGeometry = if (mode == WindowMode.MAXIMIZED) {
             WindowGeometryEngine.maximizedGeometry(area.size)
         } else {
-            WindowGeometryEngine.clampWindow(currentGeometry, area.size, density())
+            WindowGeometryEngine.clampPartiallyVisibleWindow(
+                currentGeometry,
+                area.size,
+                density(),
+                toolbarHeightPx()
+            )
         }
         applyGeometry(currentGeometry, area)
         toolbar.render(lastBrowserState, currentGeometry.width, mode == WindowMode.MAXIMIZED)
@@ -177,7 +190,7 @@ class FloatingWindowController(
 
         toolbar.view.layoutParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            dp(48)
+            toolbarHeightPx()
         )
         browser.view.layoutParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -286,10 +299,10 @@ class FloatingWindowController(
                         if (!dragging && (abs(dx) > slop || abs(dy) > slop)) dragging = true
                         if (dragging) {
                             val area = displayArea()
-                            currentGeometry = WindowGeometryEngine.clampWindow(
+                            currentGeometry = WindowGeometryEngine.clampDraggedWindow(
                                 currentGeometry.copy(x = startX + dx, y = startY + dy),
                                 area.size,
-                                density()
+                                toolbarHeightPx()
                             )
                             applyGeometry(currentGeometry, area)
                         }
@@ -408,6 +421,8 @@ class FloatingWindowController(
             offsetY = 0
         )
     }
+
+    private fun toolbarHeightPx(): Int = dp(48)
 
     private fun density(): Float = context.resources.displayMetrics.density
 

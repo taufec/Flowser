@@ -48,6 +48,62 @@ class WindowGeometryEngineTest {
     }
 
     @Test
+    fun drag_allows_half_window_off_left_edge() {
+        val result = WindowGeometryEngine.clampDraggedWindow(
+            geometry = WindowGeometry(x = -900, y = 100, width = 400, height = 500),
+            bounds = RectSize(width = 1000, height = 800),
+            toolbarHeightPx = 48
+        )
+
+        assertEquals(-200, result.x)
+    }
+
+    @Test
+    fun drag_allows_half_window_off_right_edge() {
+        val result = WindowGeometryEngine.clampDraggedWindow(
+            geometry = WindowGeometry(x = 900, y = 100, width = 400, height = 500),
+            bounds = RectSize(width = 1000, height = 800),
+            toolbarHeightPx = 48
+        )
+
+        assertEquals(800, result.x)
+    }
+
+    @Test
+    fun drag_allows_half_window_off_bottom_edge() {
+        val result = WindowGeometryEngine.clampDraggedWindow(
+            geometry = WindowGeometry(x = 100, y = 900, width = 400, height = 500),
+            bounds = RectSize(width = 1000, height = 800),
+            toolbarHeightPx = 48
+        )
+
+        assertEquals(550, result.y)
+    }
+
+    @Test
+    fun drag_keeps_half_toolbar_visible_above_top_edge() {
+        val result = WindowGeometryEngine.clampDraggedWindow(
+            geometry = WindowGeometry(x = 100, y = -900, width = 400, height = 500),
+            bounds = RectSize(width = 1000, height = 800),
+            toolbarHeightPx = 48
+        )
+
+        assertEquals(-24, result.y)
+    }
+
+    @Test
+    fun saved_partially_offscreen_position_is_preserved_on_restore() {
+        val result = WindowGeometryEngine.clampPartiallyVisibleWindow(
+            geometry = WindowGeometry(x = -150, y = 100, width = 400, height = 500),
+            bounds = RectSize(width = 1000, height = 800),
+            density = 1f,
+            toolbarHeightPx = 48
+        )
+
+        assertEquals(WindowGeometry(x = -150, y = 100, width = 400, height = 500), result)
+    }
+
+    @Test
     fun resize_grows_from_bottom_right() {
         val result = WindowGeometryEngine.resizeFromBottomRight(
             start = WindowGeometry(x = 10, y = 20, width = 300, height = 400),
