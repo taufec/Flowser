@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -36,13 +36,61 @@ jobs:
       - name: Run unit tests
         run: gradle --no-daemon testDebugUnitTest
 
-      - name: Build debug APK
+      - name: Build debug APK for verification
         run: gradle --no-daemon assembleDebug
 
-      - name: Upload debug APK
+  release:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Prepare release keystore
+        env:
+          FLOWSER_KEYSTORE_BASE64: ${{ secrets.FLOWSER_KEYSTORE_BASE64 }}
+          FLOWSER_KEYSTORE_PASSWORD: ${{ secrets.FLOWSER_KEYSTORE_PASSWORD }}
+          FLOWSER_KEY_ALIAS: ${{ secrets.FLOWSER_KEY_ALIAS }}
+          FLOWSER_KEY_PASSWORD: ${{ secrets.FLOWSER_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          for name in FLOWSER_KEYSTORE_BASE64 FLOWSER_KEYSTORE_PASSWORD FLOWSER_KEY_ALIAS FLOWSER_KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::$name is not configured in repository secrets"
+              exit 1
+            fi
+          done
+
+          printf '%s' "$FLOWSER_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/flowser-release.jks"
+          test -s "$RUNNER_TEMP/flowser-release.jks"
+
+      - name: Build signed release APK
+        env:
+          FLOWSER_KEYSTORE_PATH: ${{ runner.temp }}/flowser-release.jks
+          FLOWSER_KEYSTORE_PASSWORD: ${{ secrets.FLOWSER_KEYSTORE_PASSWORD }}
+          FLOWSER_KEY_ALIAS: ${{ secrets.FLOWSER_KEY_ALIAS }}
+          FLOWSER_KEY_PASSWORD: ${{ secrets.FLOWSER_KEY_PASSWORD }}
+        run: gradle --no-daemon assembleRelease
+
+      - name: Upload signed release APK
         uses: actions/upload-artifact@v4
         with:
-          name: flowser-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: flowser-release-apk
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
