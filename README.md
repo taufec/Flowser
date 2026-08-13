@@ -2,7 +2,7 @@
 
 Flowser is a generic Android browser that opens an interactive website in a floating window above other apps.
 
-## Flowser 0.2 prototype
+## Flowser 0.3
 
 - Open any HTTP or HTTPS website.
 - Missing schemes default to `https://`.
@@ -21,16 +21,25 @@ Flowser is a generic Android browser that opens an interactive website in a floa
 - Touches outside the floating window pass to the app underneath.
 - JavaScript, DOM storage, zoom and in-window navigation.
 - Supports Android 8.0 (API 26) and newer.
+- Permanent release-signing support for future in-place APK updates.
 
-## Install the debug APK
+## Install the signed release APK
+
+After the permanent signing secrets are configured:
 
 1. Open the repository **Actions** tab.
-2. Open the latest successful **Android Build** run for the desired branch.
-3. Download the `flowser-debug-apk` artifact.
-4. Extract the ZIP and install `app-debug.apk`.
-5. Android may ask permission to install apps from the browser or file manager.
+2. Open a successful **Android Build** run from `main` or a manually dispatched release build.
+3. Download the `flowser-release-apk` artifact.
+4. Extract the ZIP and install `app-release.apk`.
+5. For later versions, Android should offer to update the installed Flowser while preserving app data when the application ID, signing certificate and version ordering match.
 
-The debug APK is prototype-signed and is not a Play Store release build. Version 0.2 uses the same application ID as 0.1, so it can be installed over the previous debug APK while preserving app data when Android accepts the matching debug signature.
+### One-time migration from old prototype APKs
+
+Old Flowser builds used debug signing. A prototype already installed on a device may have a different debug certificate from the new permanent release. If Android refuses the first signed release as an update, uninstall the old prototype once, install the permanently signed release, and sign in to websites again once.
+
+From that point onward, keep the same permanent Flowser signing key for every release. Normal in-place updates preserve Flowser app data and WebView storage unless Flowser or the website explicitly clears or invalidates them.
+
+See [`docs/RELEASE_SIGNING.md`](docs/RELEASE_SIGNING.md) for the permanent key setup and backup procedure.
 
 ## Test controls
 
@@ -56,21 +65,31 @@ The debug APK is prototype-signed and is not a Play Store release build. Version
 - Narrow windows use a compact toolbar.
 - Rotation clamps the window or bubble to the new screen bounds.
 - Last URL, geometry, desktop mode and zoom persist.
+- A signed release with a higher `versionCode` can update the previous permanently signed release without uninstalling it.
 
 ## Build pipeline
 
-GitHub Actions uses Java 17 and Gradle 8.7 to run:
+GitHub Actions uses Java 17 and Gradle 8.7.
+
+Pull requests and verification builds run:
 
 ```text
 gradle --no-daemon testDebugUnitTest
 gradle --no-daemon assembleDebug
 ```
 
-The resulting APK is uploaded as `flowser-debug-apk`.
+Main/manual release builds additionally reconstruct the permanent keystore from GitHub Actions secrets and run:
+
+```text
+gradle --no-daemon assembleRelease
+```
+
+The distributable artifact is `flowser-release-apk`. The workflow fails instead of producing a release APK when permanent signing secrets are missing.
 
 ## Current limits
 
 - One browser session and one floating window at a time.
 - Resize is from the bottom-right handle only.
-- No tabs, bookmarks, full history UI, file picker, download manager, ad blocker or release signing yet.
+- No tabs, bookmarks, full history UI, file picker, download manager, ad blocker or built-in updater yet.
+- The permanent signing keystore must be generated once and configured in GitHub Actions before the first permanent release artifact can be produced.
 - Runtime behavior still depends on Android version and device manufacturer overlay policies.
